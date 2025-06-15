@@ -1,0 +1,3 @@
+MONG0DB_HOST: mongodb.naveenrajoli.site
+REDIS_HOST: redis.naveenrajoli.site
+CATALOGUE_HOST: catalogue.naveenrajoli.site

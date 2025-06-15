@@ -34,12 +34,12 @@
     - mysql
     - rabbitmq
     - catalogue
-    # - user
-    # - cart
-    # - shipping
-    # - payment
-    # - dispatch
-    # - frontend
+    - user
+    - cart
+    - shipping
+    - payment
+    - dispatch
+    - frontend
     register: ec2_info
 
   # - name: print ec2 information
