@@ -33,7 +33,7 @@
     - redis
     - mysql
     - rabbitmq
-    # - catalogue
+    - catalogue
     # - user
     # - cart
     # - shipping

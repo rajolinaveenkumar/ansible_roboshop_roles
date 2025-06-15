@@ -1,0 +1,66 @@
+- name: Disable the nodejs module
+  ansible.builtin.command:
+    cmd: "dnf module disable nodejs -y" # OR we give like this also --> dnf module disable nodejs -y, with out this " "
+
+- name: enable nodejs:20 
+  ansible.builtin.command: "dnf module enable nodejs:20 -y"
+
+- name: installing nodejs 
+  ansible.builtin.dnf:
+    name: nodejs
+    state: installed 
+
+- name: create user for roboshop project 
+  ansible.builtin.user:
+    name: roboshop
+    state: present
+    comment: "roboshop system user"
+    home: /app
+    shell: /bin/bash
+
+- name: create app directory 
+  ansible.builtin.file:
+    state: directory
+    path: /app
+
+- name: download catalogue content
+  ansible.builtin.unarchive:
+    src: https://roboshop-artifacts.s3.amazonaws.com/catalogue-v3.zip
+    dest: /app
+    remote_src: yes
+
+- name: Install packages based on package.json
+  community.general.npm:
+    path: /app
+
+- name: copy catalogue service file
+  ansible.builtin.copy:
+    src: catalogue.service
+    dest: /etc/systemd/system/catalogue.service
+  notify:
+  - Daemon realod and restart the catalogue service
+
+
+- name: copy MongoDB repo file
+  ansible.builtin.copy:
+    src: mongo.repo
+    dest: /etc/yum.repos.d/mongo.repo
+
+- name: installing mongodb
+  ansible.builtin.dnf:
+    name: mongodb-org
+    state: installed
+
+
+- name: check products loaded or not
+  ansible.builtin.command: mongosh --host "{{ MONG0DB_HOST }}" --eval 'db.getMongo().getDBNames().indexOf("catalogue")'
+  register: catalogue_output
+
+
+- name: print catalogue output
+  ansible.builtin.debug:
+    msg: "{{ catalogue_output }}"
+
+- name: load products
+  ansible.builtin.shell: mongosh --host "{{ MONG0DB_HOST }}" < /app/db/master-data.js
+  when: catalogue_output.stdout | int < 0
