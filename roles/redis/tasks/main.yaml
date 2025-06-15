@@ -1,0 +1,25 @@
+- name: disable default redis
+  ansible.builtin.command: "dnf module disable redis -y"
+
+- name: enable redis 7 version
+  ansible.builtin.command: dnf module enable redis:7 -y
+
+- name: install redis
+  ansible.builtin.dnf:
+    name: redis
+    state: installed 
+
+- name: editing the redis configuration file
+  ansible.builtin.replace:
+    path: /etc/redis/redis.conf
+    regexp: "{{ item.old }}"
+    replace: "{{ item.new }}"
+  loop:
+  - { old: 127.0.0.1, new: 0.0.0.0}
+  - { old: "protected-mode yes", new: "protected-mode no" }
+
+- name: start redis service
+  ansible.builtin.service:
+    name: redis
+    state: started
+    enabled: true

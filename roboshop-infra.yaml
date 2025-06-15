@@ -1,0 +1,81 @@
+- name: Creating EC2 instances for roboshop
+  hosts: localhost
+  vars:
+    IMG_ID: ami-09c813fb71547fc4f
+    SECRITY_GROUP: sg-087f3838223040db0
+    SUBNET_ID: subnet-08933a042f7aa0d82
+    REGION: us-east-1
+    INSTANCE_TYPE: t3.micro
+    ZONE_NAME: naveenrajoli.site
+  tasks:
+  - name: installing python libraries 
+    ansible.builtin.pip:
+      name: "{{ item }}"
+      executable: pip3.9
+    loop:
+    - boto
+    - boto3
+    - botocore
+    - PyMySQL
+    - cryptography
+
+
+  - name: Creating EC2 instances
+    amazon.aws.ec2_instance:
+      name: "{{ item }}"
+      instance_type: "{{ INSTANCE_TYPE }}"
+      image_id: "{{ IMG_ID }}"
+      security_group: "{{ SECRITY_GROUP }}"
+      subnet_id: "{{ SUBNET_ID }}"
+      region: "{{ REGION }}"
+    loop:
+    - mongodb
+    - redis
+    - mysql
+    - rabbitmq
+    # - catalogue
+    # - user
+    # - cart
+    # - shipping
+    # - payment
+    # - dispatch
+    # - frontend
+    register: ec2_info
+
+  # - name: print ec2 information
+  #   ansible.builtin.debug:
+  #     msg: "{{ ec2_info }}"
+
+  # - name: print private ip address
+  #   ansible.builtin.debug:
+  #     msg: "{{ item.instances[0].private_ip_address }}"
+  #   loop: "{{ ec2_info.results }}"
+
+  - name: create private ip address
+    amazon.aws.route53:
+      state: present
+      zone: "{{ ZONE_NAME }}"
+      record: "{{ item.item }}.{{ ZONE_NAME }}"
+      type: A
+      ttl: 1
+      value: "{{ item.instances[0].private_ip_address }}"
+      wait: true
+      overwrite: true
+    loop: "{{ ec2_info.results }}"
+
+  - name: create public ip adress for web servers
+    amazon.aws.route53:
+      state: present
+      zone: "{{ ZONE_NAME }}"
+      record: "{{ ZONE_NAME }}"
+      type: A
+      ttl: 1
+      value: "{{ item.instances[0].public_ip_address }}"
+      wait: true
+      overwrite: true
+    loop: "{{ ec2_info.results }}"
+    when: item.item == "frontend"
+
+
+
+  
