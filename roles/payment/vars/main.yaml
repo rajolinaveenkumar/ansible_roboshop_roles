@@ -1,0 +1,3 @@
+CART_HOST: cart.naveenrajoli.site
+USER_HOST: user.naveenrajoli.site
+RABBITMQ_HOST: rabbitmq.naveenrajoli.site
