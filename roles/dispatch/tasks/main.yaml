@@ -1,0 +1,105 @@
+- name: installing golang
+  ansible.builtin.dnf:
+    name: golang
+    state: installed 
+
+- name: create user for roboshop project 
+  ansible.builtin.user:
+    name: roboshop
+    state: present
+    comment: "roboshop system user"
+    home: /app
+    shell: /bin/bash
+
+- name: create app directory 
+  ansible.builtin.file:
+    state: directory
+    path: /app
+
+- name: download catalogue content
+  ansible.builtin.unarchive:
+    src: https://roboshop-artifacts.s3.amazonaws.com/dispatch-v3.zip
+    dest: /app
+    remote_src: yes
+
+- name: Initialize Go module
+  ansible.builtin.shell: go mod init dispatch
+  args:
+    chdir: /app
+    
+- name: Download Go dependencies
+  ansible.builtin.shell: go get
+  args:
+    chdir: /app
+
+- name: Build Go project
+  ansible.builtin.shell: go build
+  args:
+    chdir: /app
+
+- name: copy dispatch service file
+  ansible.builtin.copy:
+    src: dispatch.service
+    dest: /etc/systemd/system/dispatch.service
+
+- name:  daemon realod , enabled and start the service 
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+    name: dispatch
+    state: started
+    enabled: true
+
+#########################GMAIL########################################################################
+
+- name: installing  Postfix, the SASL authentication framework, and mailx.
+  ansible.builtin.dnf:
+    name: "{{ item }}"
+    state: installed 
+  loop:
+  - postfix
+  - cyrus-sasl-plain
+  - mutt
+
+- name: start postfix service
+  ansible.builtin.service:
+    name: postfix
+    state: started
+    enabled: true
+
+- name: Configure postfix relay settings
+  ansible.builtin.blockinfile:
+    path: /etc/postfix/main.cf
+    block: |
+      relayhost = [smtp.gmail.com]:587
+      smtp_use_tls = yes
+      smtp_sasl_auth_enable = yes
+      smtp_sasl_password_maps = hash:/etc/postfix/sasl_passwd
+      smtp_sasl_security_options = noanonymous
+      smtp_sasl_tls_security_options = noanonymous
+      smtpd_tls_CAfile = /etc/ssl/certs/ca-certificates.crt
+    marker: "# {mark} POSTFIX RELAY SETTINGS"
+    create: yes
+  become: true
+
+    
+- name: Create and add Gmail SMTP credentials to sasl_passwd
+  ansible.builtin.lineinfile:
+    path: /etc/postfix/sasl_passwd
+    line: "[smtp.gmail.com]:587 keerthirajoli04@gmail.com:szpkcivtzsxetmmu"
+    create: yes
+    state: present
+    
+- name: Create a Postfix lookup table from the sasl_passwd
+  ansible.builtin.command: postmap /etc/postfix/sasl_passwd
+
+- name: Add legacy provider in openssl.cnf under [provider_sect]
+  ansible.builtin.blockinfile:
+    path: /etc/ssl/openssl.cnf
+    marker: "; ANSIBLE MANAGED BLOCK: legacy provider"
+    insertafter: '^\[provider_sect\]'
+    block: |
+      legacy = legacy
+
+- name: send mailx
+  ansible.builtin.shell: "echo 'This is a test mail & Date $(date)' | mutt -s 'message' naveenrajoli04@gmail.com"
+
